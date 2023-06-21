@@ -12,22 +12,22 @@
 #include "midiservice.h"
 
 RTTI_BEGIN_STRUCT(nap::MidiTwisterBank)
-	RTTI_PROPERTY("Encoders", &nap::MidiTwisterBank::mEncoders, nap::rtti::EPropertyMetaData::Default)
+RTTI_PROPERTY("Encoders", &nap::MidiTwisterBank::mEncoders, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_STRUCT
 
 RTTI_BEGIN_CLASS(nap::MidiTwisterComponent)
-	RTTI_PROPERTY("Banks", &nap::MidiTwisterComponent::mBanks, nap::rtti::EPropertyMetaData::Default)
+RTTI_PROPERTY("Banks", &nap::MidiTwisterComponent::mBanks, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
 RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::MidiTwisterComponentInstance)
-    RTTI_CONSTRUCTOR(nap::EntityInstance&, nap::Component&)
+RTTI_CONSTRUCTOR(nap::EntityInstance&, nap::Component&)
 RTTI_END_CLASS
 
 namespace nap
 {
-    
-    bool MidiTwisterComponentInstance::init(utility::ErrorState& errorState)
-    {
+
+	bool MidiTwisterComponentInstance::init(utility::ErrorState& errorState)
+	{
 		mResource = getComponent<MidiTwisterComponent>();
 		if (!errorState.check(mResource->mBanks.size() <= mMaxBanks, "The MidiTwisterComponents supprots up to %d banks", mMaxBanks))
 			return false;
@@ -37,8 +37,8 @@ namespace nap
 
 		messageReceived.connect(messageReceivedSlot);
 
-        return true;
-    }
+		return true;
+	}
 
 
 	void MidiTwisterComponentInstance::onMessageReceived(const MidiEvent& event)
