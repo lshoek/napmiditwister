@@ -11,16 +11,27 @@
 // Midi includes
 #include "midiservice.h"
 
+RTTI_BEGIN_ENUM(nap::EMidiTwisterEncoderType)
+	RTTI_ENUM_VALUE(nap::EMidiTwisterEncoderType::Absolute, "Absolute"),
+	RTTI_ENUM_VALUE(nap::EMidiTwisterEncoderType::Relative, "Relative")
+RTTI_END_ENUM
+
+RTTI_BEGIN_STRUCT(nap::MidiTwisterEncoder)
+	RTTI_PROPERTY("Parameter", &nap::MidiTwisterEncoder::mParameter, nap::rtti::EPropertyMetaData::Default)
+	RTTI_PROPERTY("EncoderType", &nap::MidiTwisterEncoder::mEncoderType, nap::rtti::EPropertyMetaData::Default)
+	RTTI_PROPERTY("EncoderStepSize", &nap::MidiTwisterEncoder::mEncoderStepSize, nap::rtti::EPropertyMetaData::Default)
+RTTI_END_STRUCT
+
 RTTI_BEGIN_STRUCT(nap::MidiTwisterBank)
-RTTI_PROPERTY("Encoders", &nap::MidiTwisterBank::mEncoders, nap::rtti::EPropertyMetaData::Default)
+	RTTI_PROPERTY("Encoders", &nap::MidiTwisterBank::mEncoders, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_STRUCT
 
 RTTI_BEGIN_CLASS(nap::MidiTwisterComponent)
-RTTI_PROPERTY("Banks", &nap::MidiTwisterComponent::mBanks, nap::rtti::EPropertyMetaData::Default)
+	RTTI_PROPERTY("Banks", &nap::MidiTwisterComponent::mBanks, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
 RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::MidiTwisterComponentInstance)
-RTTI_CONSTRUCTOR(nap::EntityInstance&, nap::Component&)
+	RTTI_CONSTRUCTOR(nap::EntityInstance&, nap::Component&)
 RTTI_END_CLASS
 
 namespace nap
@@ -29,7 +40,7 @@ namespace nap
 	bool MidiTwisterComponentInstance::init(utility::ErrorState& errorState)
 	{
 		mResource = getComponent<MidiTwisterComponent>();
-		if (!errorState.check(mResource->mBanks.size() <= mMaxBanks, "The MidiTwisterComponents supprots up to %d banks", mMaxBanks))
+		if (!errorState.check(mResource->mBanks.size() <= mMaxBanks, "The MidiTwisterComponents supports up to %d banks", mMaxBanks))
 			return false;
 
 		if (!MidiInputComponentInstance::init(errorState))
@@ -50,9 +61,11 @@ namespace nap
 		if (bank_index >= mResource->mBanks.size())
 			return;
 
-		auto& bank = mResource->mBanks[bank_index];
+		MidiTwisterBank& bank = mResource->mBanks[bank_index];
 		const uint encoder_index = event.getNumber() % MidiTwisterBank::BANKSIZE;
-		auto& param = bank.mEncoders[encoder_index];
+
+		MidiTwisterEncoder& enc = bank.mEncoders[encoder_index];
+		auto& param = enc.mParameter;
 
 		if (param != nullptr)
 		{
@@ -61,8 +74,24 @@ namespace nap
 			{
 				case EMidiTwisterChannel::Encoder:
 				{
-					const float normal = event.getValue() / 127.0f;
-					param->setValue(param->mMinimum + normal * (param->mMaximum - param->mMinimum));
+					EMidiTwisterEncoderType enc_type = static_cast<EMidiTwisterEncoderType>(enc.mEncoderType);
+					switch (enc_type)
+					{
+						case EMidiTwisterEncoderType::Absolute:
+						{
+							float normal = event.getValue() / 127.0f;
+							float value = param->mMinimum + normal * (param->mMaximum - param->mMinimum);
+							param->setValue(value);
+							break;
+						}
+						case EMidiTwisterEncoderType::Relative:
+						{
+							// 63 = anticlockwise, 65 = clockwise
+							bool clockwise = event.getValue() > 64.0f;
+							param->setValue(param->mValue + (clockwise ? enc.mEncoderStepSize : -enc.mEncoderStepSize));
+							break;
+						}
+					}
 					break;
 				}
 				case EMidiTwisterChannel::EncoderButton:

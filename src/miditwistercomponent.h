@@ -13,6 +13,13 @@ namespace nap
 {
 	class MidiTwisterComponentInstance;
 
+	// Midi Encoder Types
+	enum class EMidiTwisterEncoderType
+	{
+		Absolute = 0,
+		Relative = 1
+	};
+
 	// Midi Twister Channels
 	enum class EMidiTwisterChannel
 	{
@@ -22,16 +29,24 @@ namespace nap
 	};
 
 	// Four banks of sixteen encoders each
+	struct MidiTwisterEncoder
+	{
+		ResourcePtr<ParameterFloat> mParameter;
+		EMidiTwisterEncoderType mEncoderType = EMidiTwisterEncoderType::Absolute;
+		float mEncoderStepSize = 0.01f;
+	};
+
+	// Four banks of sixteen encoders each
 	struct MidiTwisterBank
 	{
 		// A bank comprises sixteen encoders
 		static constexpr size_t BANKSIZE = 16;
-		std::array<ResourcePtr<ParameterFloat>, BANKSIZE> mEncoders;
+		std::array<MidiTwisterEncoder, BANKSIZE> mEncoders;
 	};
 
 	/**
-		* Component that maps Midi Fighter Twister signals to parameters
-		*/
+	 * Component that maps Midi Fighter Twister signals to parameters
+	 */
 	class NAPAPI MidiTwisterComponent : public MidiInputComponent
 	{
 		RTTI_ENABLE(MidiInputComponent)
@@ -42,12 +57,13 @@ namespace nap
 			MidiInputComponent() { }
 
 		std::vector<MidiTwisterBank> mBanks;
+		bool mEnable = true;
 	};
 
 
 	/**
-		* Instance of component that maps Midi Fighter Twister signals to parameters.
-		*/
+	 * Instance of component that maps Midi Fighter Twister signals to parameters.
+	 */
 	class NAPAPI MidiTwisterComponentInstance : public MidiInputComponentInstance
 	{
 		RTTI_ENABLE(MidiInputComponentInstance)
