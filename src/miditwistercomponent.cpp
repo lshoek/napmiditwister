@@ -7,6 +7,7 @@
 // Nap includes
 #include <entity.h>
 #include <nap/core.h>
+#include <nap/logger.h>
 
 // Midi includes
 #include "midiservice.h"
@@ -36,6 +37,25 @@ RTTI_END_CLASS
 
 namespace nap
 {
+	/**
+	 * Supported parameter types
+	 */
+	static std::vector<rtti::TypeInfo> sSupportedParameterTypes
+	{
+		RTTI_OF(ParameterFloat),
+		RTTI_OF(ParameterInt),
+		RTTI_OF(ParameterBool)
+	};
+
+
+	static bool isSupported(rtti::TypeInfo inType)
+	{
+		for (auto t : sSupportedParameterTypes)
+			if (inType.is_derived_from(t))
+				return true;
+		return false;
+	}
+
 
 	bool MidiTwisterComponentInstance::init(utility::ErrorState& errorState)
 	{
@@ -65,38 +85,69 @@ namespace nap
 		const uint encoder_index = event.getNumber() % MidiTwisterBank::BANKSIZE;
 
 		MidiTwisterEncoder& enc = bank.mEncoders[encoder_index];
-		auto& param = enc.mParameter;
-
-		if (param != nullptr)
+		if (enc.mParameter != nullptr)
 		{
+			if (!isSupported(enc.mParameter.get()->get_type()))
+			{
+				nap::Logger::warn("%s: Unsupported parameter type", mResource->mID.c_str());
+				return;
+			}
+
 			EMidiTwisterChannel channel = static_cast<EMidiTwisterChannel>(event.getChannel());
 			switch (channel)
 			{
-				case EMidiTwisterChannel::Encoder:
+				case EMidiTwisterChannel::Twist:
 				{
 					EMidiTwisterEncoderType enc_type = static_cast<EMidiTwisterEncoderType>(enc.mEncoderType);
-					switch (enc_type)
+					if (enc.mParameter.get()->get_type().is_derived_from(RTTI_OF(ParameterFloat)))
 					{
-						case EMidiTwisterEncoderType::Absolute:
+						auto* param = static_cast<ParameterFloat*>(enc.mParameter.get());
+						switch (enc_type)
 						{
-							float normal = event.getValue() / 127.0f;
-							float value = param->mMinimum + normal * (param->mMaximum - param->mMinimum);
-							param->setValue(value);
-							break;
+							case EMidiTwisterEncoderType::Absolute:
+							{
+								float normal = event.getValue() / 127.0f;
+								float value = param->mMinimum + normal * (param->mMaximum - param->mMinimum);
+								param->setValue(value);
+								break;
+							}
+							case EMidiTwisterEncoderType::Relative:
+							{
+								// 63 = anticlockwise, 65 = clockwise
+								bool clockwise = event.getValue() > 64.0f;
+								param->setValue(param->mValue + (clockwise ? enc.mEncoderStepSize : -enc.mEncoderStepSize));
+								break;
+							}
 						}
-						case EMidiTwisterEncoderType::Relative:
+						break;
+					}
+					else if (enc.mParameter.get()->get_type().is_derived_from(RTTI_OF(ParameterInt)))
+					{
+						auto* param = static_cast<ParameterInt*>(enc.mParameter.get());
+						bool clockwise = event.getValue() > 64.0f;
+						int value = std::clamp(param->mValue + (clockwise ? 1 : -1), param->mMinimum, param->mMaximum);
+						param->setValue(value);
+						break;
+					}
+				}
+				case EMidiTwisterChannel::Push:
+				{
+					if (enc.mParameter.get()->get_type().is_derived_from(RTTI_OF(ParameterFloat)))
+					{
+						// No action
+					}
+					else if (enc.mParameter.get()->get_type().is_derived_from(RTTI_OF(ParameterInt)))
+					{
+						// No action
+					}
+					else if (enc.mParameter.get()->get_type().is_derived_from(RTTI_OF(ParameterBool)))
+					{
+						if (event.getValue() >= 127.0f)
 						{
-							// 63 = anticlockwise, 65 = clockwise
-							bool clockwise = event.getValue() > 64.0f;
-							param->setValue(param->mValue + (clockwise ? enc.mEncoderStepSize : -enc.mEncoderStepSize));
-							break;
+							auto* param = static_cast<ParameterBool*>(enc.mParameter.get());
+							param->setValue(!param->getValue());
 						}
 					}
-					break;
-				}
-				case EMidiTwisterChannel::EncoderButton:
-				{
-					param->setValue(param->mMinimum + 0.5f * (param->mMaximum - param->mMinimum));
 					break;
 				}
 				default:

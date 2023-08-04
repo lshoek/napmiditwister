@@ -7,6 +7,7 @@
 // Nap includes
 #include <midiinputcomponent.h>
 #include <parameternumeric.h>
+#include <parametersimple.h>
 #include <nap/resourceptr.h>
 
 namespace nap
@@ -23,16 +24,16 @@ namespace nap
 	// Midi Twister Channels
 	enum class EMidiTwisterChannel
 	{
-		Encoder = 0,
-		EncoderButton = 1,
-		SideButton = 3
+		Twist = 0,
+		Push = 1,
+		Side = 3
 	};
 
 	// Four banks of sixteen encoders each
 	struct MidiTwisterEncoder
 	{
-		ResourcePtr<ParameterFloat> mParameter;
-		EMidiTwisterEncoderType mEncoderType = EMidiTwisterEncoderType::Absolute;
+		ResourcePtr<Parameter> mParameter;
+		EMidiTwisterEncoderType mEncoderType = EMidiTwisterEncoderType::Relative;
 		float mEncoderStepSize = 0.01f;
 	};
 
@@ -83,8 +84,8 @@ namespace nap
 		MidiTwisterComponent* mResource = nullptr;
 
 		/**
-			*
-			*/
+		 *
+		 */
 		void onMessageReceived(const MidiEvent& event);
 		Slot<const MidiEvent&> messageReceivedSlot = { this, &MidiTwisterComponentInstance::onMessageReceived };
 
